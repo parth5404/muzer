@@ -1,9 +1,15 @@
 import Image from "next/image";
+import Link from "next/link";
+import { Appbar } from "./components/Appbar";
+import { SessionProvider } from "next-auth/react";
 
 export default function Home() {
+  
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-     Hi all!
+    
+    <main >
+      <Appbar></Appbar>
     </main>
+  
   );
 }

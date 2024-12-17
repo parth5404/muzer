@@ -1,6 +1,10 @@
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google";
-console.log(process.env.GOOGLE_CLIENT_ID);
+import { NextResponse } from "next/server";
+//  export function GET(request: Request) {
+//     return NextResponse.json({ message: "Hello World" })
+// }
+
 const handler = NextAuth({
     providers: [
         GoogleProvider({
