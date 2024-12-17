@@ -19,17 +19,3 @@ Muzer is a modern web application built with **Next.js**, **Prisma**, and **OAut
 - **React**: For building the frontend interface.
 - **Music Streaming Integration**: Built to integrate with third-party streaming services (e.g., Spotify, SoundCloud, etc.).
 
-## Installation
-
-### Prerequisites
-
-- Node.js (>= 14.x)
-- PostgreSQL (or any other supported database)
-
-### Steps to Run Locally
-
-1. **Clone the repository**:
-
-   ```bash
-   git clone https://github.com/your-username/muzer.git
-   cd muzer
