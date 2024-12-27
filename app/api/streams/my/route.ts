@@ -16,11 +16,12 @@ export async function GET(request: Request) {
 
   // If user exists, find the stream for the user
   const streams = await prismaclient.stream.findMany({
+  
     where: {
       userId: user.id
     }
   });
-
+  console.log(streams);
   return NextResponse.json({
     streams
   });
