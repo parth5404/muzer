@@ -22,7 +22,7 @@ export function Appbar({ showThemeSwitch = true , isSpectator=false }) {
         Muzer
       </div>
       <div className="flex items-center gap-x-2">
-        {isSpectator && <WalletMultiButton/>}
+        {/* {isSpectator && <WalletMultiButton/>} */}
         {session.data?.user && (
           <Button
             className="bg-purple-600 text-white hover:bg-purple-700"
@@ -61,7 +61,7 @@ export function Appbar({ showThemeSwitch = true , isSpectator=false }) {
           </div>
         )}
         
-        {showThemeSwitch && <ThemeSwitcher />}
+        {/* {showThemeSwitch && <ThemeSwitcher />} */}
       </div>
     </div>
   );
