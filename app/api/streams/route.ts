@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
             });
         }
         
-        const extractedId = data.url.split("?v=")[1];
+    const extractedId = data.url.split("?v=")[1];
      const res=await  youtubesearchapi.GetVideoDetails(extractedId);
      console.log(res.title);
      const tb=res.thumbnail.thumbnails;

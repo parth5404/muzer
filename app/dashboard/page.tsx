@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import YouTube from 'react-youtube';
+import axios from 'axios';
 import { useSession } from "next-auth/react";
 
 interface QueueItem {
@@ -18,8 +19,16 @@ interface QueueItem {
   haveupvoted: boolean;
 }
 
+interface User {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
 export default function StreamPage() {
   const { data: session } = useSession();
+  const user = session?.user as User;
   const [url, setUrl] = useState('');
   const [isStreamer, setIsStreamer] = useState(true);
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -27,65 +36,15 @@ export default function StreamPage() {
 
   useEffect(() => {
     const fetchQueue = async () => {
-      if (session?.user?.email) {
-        const response = await fetch(`/api/streams?creatorId=${session.user.email}`);
-        const data = await response.json();
-        if (data.streams) {
-          setQueueItems(data.streams);
+      if (user?.id) {
+        const response = await axios.get(`/api/streams?creatorId=${user.id}`);
+        if (response.data.streams) {
+          setQueueItems(response.data.streams);
         }
       }
     };
     fetchQueue();
-  }, [session?.user?.email]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url || !session?.user?.email) return;
-
-    const videoId = url.split('v=')[1]?.split('&')[0];
-    if (!videoId) return;
-
-    const videoExists = queueItems.some(item => item.extractedId === videoId);
-    if (videoExists) {
-      alert("This video is already in queue!");
-      setUrl('');
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/streams/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          creatorId: session.user.email,
-          url: url,
-        }),
-      });
-
-      const data = await res.json();
-
-      const newQueueItem: QueueItem = {
-        id: data.id,
-        type: "youtube",
-        url: url,
-        extractedId: videoId,
-        title: data.title,
-        smallImg: data.smallImg,
-        bigImg: data.bigImg,
-        active: false,
-        userId: session.user.email,
-        upvotes: 0,
-        haveupvoted: false
-      };
-
-      setQueueItems(prev => [...prev, newQueueItem]);
-      setUrl('');
-    } catch (error) {
-      console.log("Error adding song:", error);
-    }
-  };
+  }, [user?.id]);
 
   const handleVote = async (itemId: string, voteType: 'up' | 'down') => {
     const updatedQueue = queueItems.map(item => {
@@ -104,7 +63,7 @@ export default function StreamPage() {
 
   const handleDelete = async (itemId: string) => {
     try {
-      await fetch(`/api/streams/${itemId}`, { method: 'DELETE' });
+      await axios.delete(`/api/streams/${itemId}`);
       setQueueItems(queueItems.filter(item => item.id !== itemId));
     } catch (error) {
       console.log("Delete error:", error);
@@ -115,6 +74,46 @@ export default function StreamPage() {
     setQueueItems(queueItems.map(item => 
       item.id === itemId ? { ...item, upvotes: newUpvotes } : item
     ));
+  };
+
+  const handleSubmit = async () => {
+    if (!url || !user?.id) return;
+
+    const videoId = url.split('v=')[1]?.split('&')[0];
+    if (!videoId) return;
+
+    const videoExists = queueItems.some(item => item.extractedId === videoId);
+    if (videoExists) {
+      alert("This video is already in queue!");
+      setUrl('');
+      return;
+    }
+
+    try {
+      const response = await axios.post('/api/streams', {
+        creatorId: user.id,
+        url: url
+      });
+
+      const newQueueItem: QueueItem = {
+        id: response.data.id,
+        type: "youtube",
+        url: url,
+        extractedId: videoId,
+        title: response.data.title,
+        smallImg: response.data.smallImg,
+        bigImg: response.data.bigImg,
+        active: false,
+        userId: user.id,
+        upvotes: 0,
+        haveupvoted: false
+      };
+
+      setQueueItems([...queueItems, newQueueItem]);
+      setUrl('');
+    } catch (error) {
+      alert("Failed to add video to queue");
+    }
   };
 
   const onVideoEnd = () => {
@@ -235,7 +234,7 @@ export default function StreamPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 bg-gray-800/50 backdrop-blur-md rounded-xl shadow-xl">
+            <div className="p-6 bg-gray-800/50 backdrop-blur-md rounded-xl shadow-xl">
               <h2 className="text-2xl font-bold text-white mb-6">Add Song to Queue</h2>
               <input
                 type="text"
@@ -245,12 +244,12 @@ export default function StreamPage() {
                 className="w-full p-4 bg-gray-700 text-white border-none rounded-lg focus:ring-2 focus:ring-purple-500 placeholder-gray-400 text-lg"
               />
               <button
-                type="submit"
+                onClick={handleSubmit}
                 className="mt-6 w-full px-6 py-4 bg-purple-600 text-white text-lg font-semibold rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Add to Queue
               </button>
-            </form>
+            </div>
           </div>
         </div>
       </main>

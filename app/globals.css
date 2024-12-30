@@ -65,3 +65,32 @@
   }
 }
 
+@keyframes border-animation {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes neon-pulse {
+  0% { text-shadow: 0 0 7px #fff, 0 0 10px #fff, 0 0 21px #fff, 0 0 42px #0fa, 0 0 82px #0fa, 0 0 92px #0fa; }
+  50% { text-shadow: 0 0 5px #fff, 0 0 8px #fff, 0 0 18px #fff, 0 0 38px #0fa, 0 0 73px #0fa, 0 0 80px #0fa; }
+  100% { text-shadow: 0 0 7px #fff, 0 0 10px #fff, 0 0 21px #fff, 0 0 42px #0fa, 0 0 82px #0fa, 0 0 92px #0fa; }
+}
+
+.animated-border {
+  background: linear-gradient(
+    90deg,
+    #ff0080 0%,
+    #00ffd5 20%,
+    #ffed00 40%,
+    #00ff80 60%,
+    #00ffd5 80%,
+    #ff0080 100%
+  );
+  background-size: 200% 200%;
+  animation: border-animation 3s linear infinite;
+}
+
+.neon-text {
+  animation: neon-pulse 2s infinite;
+}
