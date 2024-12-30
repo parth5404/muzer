@@ -4,7 +4,8 @@ import {prismaclient} from '@/app/lib/db';
 
 export async function GET(request: Request) {
   const session = await getSession();
-  const user = session?.user as { id: string; name?: string | null; email?: string | null; image?: string | null };
+  const user = session?.user as { 
+    id: string; name?: string | null; email?: string | null; image?: string | null };
 
   if (!user) {
     return NextResponse.json({
@@ -14,15 +15,29 @@ export async function GET(request: Request) {
     });
   }
 
-  // If user exists, find the stream for the user
   const streams = await prismaclient.stream.findMany({
-  
     where: {
-      userId: user.id
-    }
+      userId: user.id,
+    },
+    include: {
+      _count: {
+        select: {
+          upvotes: true,
+        },
+      },
+      upvotes: {
+        where: {
+          userId: user.id,
+        },
+      },
+    },
   });
-  console.log(streams);
+  
   return NextResponse.json({
-    streams
+    streams: streams.map(({_count, ...rest}) => ({
+      ...rest,
+      upvotes: _count.upvotes,
+      haveupvoted:rest.upvotes.length > 0,
+    })),
   });
 }

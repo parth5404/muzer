@@ -2,34 +2,99 @@
 
 import React, { useState, useEffect } from 'react';
 import YouTube from 'react-youtube';
-import axios from 'axios';
+import { useSession } from "next-auth/react";
 
 interface QueueItem {
   id: string;
+  type: string;
+  url: string;
+  extractedId: string;
   title: string;
-  thumbnail: string;
-  votes: number;
+  smallImg: string;
+  bigImg: string;
+  active: boolean;
+  userId: string;
+  upvotes: number;
+  haveupvoted: boolean;
 }
 
 export default function StreamPage() {
+  const { data: session } = useSession();
   const [url, setUrl] = useState('');
-  const [queueItems, setQueueItems] = useState<QueueItem[]>([
-    {
-      id: '1',
-      title: 'Current Top Song',
-      thumbnail: '/thumbnails/default.jpg',
-      votes: 10
-    }
-  ]);
+  const [isStreamer, setIsStreamer] = useState(true);
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [currentVideo, setCurrentVideo] = useState<string | null>(null);
 
+  useEffect(() => {
+    const fetchQueue = async () => {
+      if (session?.user?.email) {
+        const response = await fetch(`/api/streams?creatorId=${session.user.email}`);
+        const data = await response.json();
+        if (data.streams) {
+          setQueueItems(data.streams);
+        }
+      }
+    };
+    fetchQueue();
+  }, [session?.user?.email]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url || !session?.user?.email) return;
+
+    const videoId = url.split('v=')[1]?.split('&')[0];
+    if (!videoId) return;
+
+    const videoExists = queueItems.some(item => item.extractedId === videoId);
+    if (videoExists) {
+      alert("This video is already in queue!");
+      setUrl('');
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/streams/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          creatorId: session.user.email,
+          url: url,
+        }),
+      });
+
+      const data = await res.json();
+
+      const newQueueItem: QueueItem = {
+        id: data.id,
+        type: "youtube",
+        url: url,
+        extractedId: videoId,
+        title: data.title,
+        smallImg: data.smallImg,
+        bigImg: data.bigImg,
+        active: false,
+        userId: session.user.email,
+        upvotes: 0,
+        haveupvoted: false
+      };
+
+      setQueueItems(prev => [...prev, newQueueItem]);
+      setUrl('');
+    } catch (error) {
+      console.log("Error adding song:", error);
+    }
+  };
+
   const handleVote = async (itemId: string, voteType: 'up' | 'down') => {
-    // Implement voting logic
     const updatedQueue = queueItems.map(item => {
       if (item.id === itemId) {
+        if (item.haveupvoted && voteType === 'up') return item;
         return {
           ...item,
-          votes: voteType === 'up' ? item.votes + 1 : item.votes - 1
+          upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes - 1,
+          haveupvoted: voteType === 'up'
         };
       }
       return item;
@@ -37,10 +102,35 @@ export default function StreamPage() {
     setQueueItems(updatedQueue);
   };
 
-  const handleSubmit = async () => {
-    if (!url) return;
-    // Add YouTube URL validation and processing
-    // Add to queue logic
+  const handleDelete = async (itemId: string) => {
+    try {
+      await fetch(`/api/streams/${itemId}`, { method: 'DELETE' });
+      setQueueItems(queueItems.filter(item => item.id !== itemId));
+    } catch (error) {
+      console.log("Delete error:", error);
+    }
+  };
+
+  const handlePriority = (itemId: string, newUpvotes: number) => {
+    setQueueItems(queueItems.map(item => 
+      item.id === itemId ? { ...item, upvotes: newUpvotes } : item
+    ));
+  };
+
+  const onVideoEnd = () => {
+    const nextSong = queueItems
+      .filter(item => !item.active)
+      .sort((a, b) => b.upvotes - a.upvotes)[0];
+
+    if (nextSong) {
+      const updatedQueue = queueItems.map(item => ({
+        ...item,
+        active: item.id === nextSong.id
+      }));
+
+      setQueueItems(updatedQueue);
+      setCurrentVideo(nextSong.extractedId);
+    }
   };
 
   const shareStream = async () => {
@@ -60,8 +150,8 @@ export default function StreamPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
       <main className="container mx-auto p-8">
         <div className="space-y-8">
-          {/* Share Button */}
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-white">Music Stream</h1>
             <button
               onClick={shareStream}
               className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -73,57 +163,71 @@ export default function StreamPage() {
             </button>
           </div>
 
-         {/* Video Player */}
-<div className="w-full max-w-5xl mx-auto h-[500px] rounded-xl overflow-hidden shadow-2xl bg-gray-800">
-  <YouTube
-    videoId={currentVideo || 'dQw4w9WgXcQ'}
-    opts={{
-      width: '100%',
-      height: '100%',
-      playerVars: {
-        autoplay: 1,
-        modestbranding: 1,
-      }
-    }}
-    className="w-full h-full"
-  />
-</div>
-
+          <div className="w-full max-w-3xl mx-auto h-[400px] rounded-xl overflow-hidden shadow-2xl bg-gray-800">
+            <YouTube
+              videoId={currentVideo || 'dQw4w9WgXcQ'}
+              opts={{
+                width: '100%',
+                height: '100%',
+                playerVars: {
+                  autoplay: 1,
+                  modestbranding: 1,
+                }
+              }}
+              onEnd={onVideoEnd}
+              className="w-full h-full"
+            />
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Queue */}
             <div className="bg-gray-800/50 backdrop-blur-md rounded-xl shadow-xl">
               <h2 className="p-6 text-2xl font-bold text-white border-b border-gray-700">
                 Song Queue
               </h2>
               <div className="divide-y divide-gray-700 max-h-[600px] overflow-y-auto">
-                {queueItems.map((item) => (
+                {queueItems.sort((a,b)=>b.upvotes-a.upvotes).map((item) => (
                   <div key={item.id} className="p-6 flex items-center gap-6">
-                    <img 
-                      src={item.thumbnail} 
-                      alt={item.title} 
+                    <img
+                      src={item.bigImg}
+                      alt={item.title}
                       className="w-32 h-24 rounded-lg object-cover"
                     />
                     <div className="flex-1">
                       <h3 className="text-lg font-medium text-white">{item.title}</h3>
                       <div className="flex items-center gap-4 mt-3">
-                        <button 
+                        <button
                           onClick={() => handleVote(item.id, 'up')}
-                          className="p-2 hover:bg-purple-600/50 rounded-lg transition-colors"
+                          disabled={item.haveupvoted}
+                          className={`p-2 rounded-lg transition-colors ${
+                            item.haveupvoted 
+                              ? 'bg-purple-600 text-white cursor-not-allowed' 
+                              : 'hover:bg-purple-600/50 text-gray-300'
+                          }`}
                         >
-                          <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                           </svg>
                         </button>
-                        <span className="text-xl font-bold text-white">{item.votes}</span>
-                        <button 
-                          onClick={() => handleVote(item.id, 'down')}
-                          className="p-2 hover:bg-purple-600/50 rounded-lg transition-colors"
-                        >
-                          <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
+                        <span className="text-xl font-bold text-white">{item.upvotes}</span>
+                        
+                        {isStreamer && (
+                          <div className="flex items-center gap-2 ml-4">
+                            <input
+                              type="number"
+                              value={item.upvotes}
+                              onChange={(e) => handlePriority(item.id, parseInt(e.target.value))}
+                              className="w-20 p-2 bg-gray-700 text-white rounded-lg"
+                            />
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              className="p-2 text-red-500 hover:bg-red-500/20 rounded-lg transition-colors"
+                            >
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -131,8 +235,7 @@ export default function StreamPage() {
               </div>
             </div>
 
-            {/* Add to Queue Form */}
-            <div className="p-6 bg-gray-800/50 backdrop-blur-md rounded-xl shadow-xl">
+            <form onSubmit={handleSubmit} className="p-6 bg-gray-800/50 backdrop-blur-md rounded-xl shadow-xl">
               <h2 className="text-2xl font-bold text-white mb-6">Add Song to Queue</h2>
               <input
                 type="text"
@@ -142,12 +245,12 @@ export default function StreamPage() {
                 className="w-full p-4 bg-gray-700 text-white border-none rounded-lg focus:ring-2 focus:ring-purple-500 placeholder-gray-400 text-lg"
               />
               <button
-                onClick={handleSubmit}
+                type="submit"
                 className="mt-6 w-full px-6 py-4 bg-purple-600 text-white text-lg font-semibold rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Add to Queue
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </main>
