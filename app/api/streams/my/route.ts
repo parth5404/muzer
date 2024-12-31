@@ -1,39 +1,49 @@
-import { NextResponse } from 'next/server';
-import { prismaclient } from '@/app/lib/db';
-import { getServerSession } from 'next-auth';
+import { prismaClient } from "@/app/lib/db";
+import { getServerSession } from "next-auth";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export async function GET(req: NextRequest) {
     const session = await getServerSession();
-    
-    if (!session?.user?.email) {
-        return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await prismaclient.user.findUnique({
-        where: { email: session.user.email }
+     // TODO: You can get rid of the db call here 
+     const user = await prismaClient.user.findFirst({
+        where: {
+            email: session?.user?.email ?? ""
+        }
     });
 
     if (!user) {
-        return NextResponse.json({ message: "User not found" }, { status: 404 });
+        return NextResponse.json({
+            message: "Unauthenticated"
+        }, {
+            status: 403
+        })
     }
 
-    const streams = await prismaclient.stream.findMany({
-        where: { userId: user.id },
+    
+    const streams = await prismaClient.stream.findMany({
+        where: {
+            userId: user.id
+        },
         include: {
             _count: {
-                select: { upvotes: true }
+                select: {
+                    upvotes: true
+                }
             },
             upvotes: {
-                where: { userId: user.id }
+                where: {
+                    userId: user.id
+                }
             }
         }
-    });
+    })
+    
 
     return NextResponse.json({
         streams: streams.map(({_count, ...rest}) => ({
             ...rest,
             upvotes: _count.upvotes,
-            haveupvoted: rest.upvotes.length > 0
+            haveUpvoted: rest.upvotes.length ? true : false
         }))
-    });
+    })
 }

@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
-
-export const prismaclient = new PrismaClient();
+export const prismaClient = new PrismaClient();
+//  this isnt the best, we should introduce a singleton herea
