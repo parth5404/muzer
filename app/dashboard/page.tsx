@@ -34,33 +34,81 @@ export default function StreamPage() {
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [currentVideo, setCurrentVideo] = useState<string | null>(null);
 
+  // Test Data Setup
   useEffect(() => {
-    const fetchQueue = async () => {
-      if (user?.id) {
-        const response = await axios.get(`/api/streams?creatorId=${user.id}`);
-        if (response.data.streams) {
-          setQueueItems(response.data.streams);
-        }
+    const testQueueItems: QueueItem[] = [
+      {
+        id: "1",
+        type: "youtube",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        extractedId: "dQw4w9WgXcQ",
+        title: "Never Gonna Give You Up",
+        smallImg: "https://img.youtube.com/vi/dQw4w9WgXcQ/default.jpg",
+        bigImg: "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        active: false,
+        userId: "test-user-id",
+        upvotes: 5,
+        haveupvoted: false
+      },
+      {
+        id: "2",
+        type: "youtube",
+        url: "https://www.youtube.com/watch?v=y6120QOlsfU",
+        extractedId: "y6120QOlsfU",
+        title: "Darude - Sandstorm",
+        smallImg: "https://img.youtube.com/vi/y6120QOlsfU/default.jpg",
+        bigImg: "https://img.youtube.com/vi/y6120QOlsfU/maxresdefault.jpg",
+        active: false,
+        userId: "test-user-id",
+        upvotes: 3,
+        haveupvoted: true
       }
-    };
-    fetchQueue();
-  }, [user?.id]);
+    ];
+    setQueueItems(testQueueItems);
+  }, []);
 
-  const handleVote = async (itemId: string, voteType: 'up' | 'down') => {
-    const updatedQueue = queueItems.map(item => {
-      if (item.id === itemId) {
-        if (item.haveupvoted && voteType === 'up') return item;
-        return {
-          ...item,
-          upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes - 1,
-          haveupvoted: voteType === 'up'
-        };
-      }
-      return item;
-    });
-    setQueueItems(updatedQueue);
+  // const handleVote = async (itemId: string, voteType: 'up' | 'down') => {
+  //   const updatedQueue = queueItems.map(item => {
+  //     if (item.id === itemId) {
+  //       if (item.haveupvoted && voteType === 'up') return item;
+  //       return {
+  //         ...item,
+  //         upvotes: voteType === 'up' ? item.upvotes + 1 : item.upvotes - 1,
+  //         haveupvoted: voteType === 'up'
+  //       };
+  //     }
+  //     return item;
+  //   });
+  //   setQueueItems(updatedQueue);
+
+  //   await fetch(`/api/streams/upvote`, {
+  //     method: 'POST',
+  //     body: JSON.stringify({ streamId: itemId }),
+  //   });
+  // };
+  const handleVote = async(id: string, isUpvote: boolean) => {
+    setQueueItems(
+      queueItems.map((video) =>
+        video.id === id
+          ? {
+              ...video,
+              upvotes: isUpvote ? video.upvotes + 1 : video.upvotes,
+            }
+          : video
+      ).sort((a, b) => b.upvotes - a.upvotes)
+    );
+  
+   await fetch(`/api/streams/${isUpvote ? "upvote" : "downvote"}`, {
+    method: "POST",
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      streamId: id,
+    }),
+  });
   };
-
   const handleDelete = async (itemId: string) => {
     try {
       await axios.delete(`/api/streams/${itemId}`);
@@ -90,7 +138,7 @@ export default function StreamPage() {
     }
 
     try {
-      const response = await axios.post('/api/streams', {
+      const response = await axios.post('/api/streams/my', {
         creatorId: user.id,
         url: url
       });
@@ -144,7 +192,6 @@ export default function StreamPage() {
       await navigator.clipboard.writeText(shareUrl);
     }
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
       <main className="container mx-auto p-8">

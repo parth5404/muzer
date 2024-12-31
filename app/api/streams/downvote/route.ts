@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
                     }
                 }
                            }); // Deleting the upvote
+                           return NextResponse.json({
+                               message: "Downvoted successfully" });
         }
         catch(e){
             return NextResponse.json({
